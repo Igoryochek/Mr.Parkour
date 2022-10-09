@@ -36,6 +36,15 @@ public class EnemyMovement : MonoBehaviour
         }
     }
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.TryGetComponent(out Player player))
+        {
+            _enemy.Fall();
+            _speed = 0;
+        }
+    }
+
     public void SetSpeed(float speed)
     {
         _speed = speed;

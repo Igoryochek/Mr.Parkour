@@ -21,6 +21,11 @@ public class AnimationController : MonoBehaviour
         _animator.SetTrigger("BonusFlip");
     }
     
+    public void SideFlip()
+    {
+        _animator.SetTrigger("SideFlip");
+    }
+    
     public void Fall()
     {
         _animator.SetTrigger("Fall");

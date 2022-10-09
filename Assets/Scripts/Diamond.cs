@@ -6,5 +6,5 @@ public class Diamond : MonoBehaviour
 {
     [SerializeField] private int _points;
 
-    public int Points => _points;
+    public int CrystalsCount => _points;
 }

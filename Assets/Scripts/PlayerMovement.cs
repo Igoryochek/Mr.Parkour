@@ -16,13 +16,22 @@ public class PlayerMovement : MonoBehaviour
 
     private Player _player;
     private Coroutine _movingToLine;
+    private Coroutine _jumping;
+    private Coroutine _gettingShieldBonus;
     private Rigidbody _rigidbody;
     private bool _isJumping=false;
+    private bool _isSideJump=false;
+    private bool _onGround=true;
+    private float _startJumpForce;
+
+    public float Speed => _speed;
+    public float JumpForce => _jumpForce;
 
     private void Start()
     {
         _player = GetComponent<Player>();
         _rigidbody = GetComponent<Rigidbody>();
+        _startJumpForce = _jumpForce;
     }
 
     private void Update()
@@ -38,8 +47,9 @@ public class PlayerMovement : MonoBehaviour
             {
                 MoveToLine(_rightLine.transform);
             }
+            _player.GetChangingPosition(transform);
         }
-        
+
         if (Input.GetKey(KeyCode.LeftArrow))
         {
             if (transform.position.x<_leftLine.transform.position.x&& transform.position.x <_centralLine .transform.position.x)
@@ -50,9 +60,10 @@ public class PlayerMovement : MonoBehaviour
             {
                 MoveToLine(_leftLine.transform);
             }
+            _player.GetChangingPosition(transform);
         }
         
-        if (Input.GetKey(KeyCode.UpArrow)&&_isJumping==false)
+        if (Input.GetKey(KeyCode.UpArrow)&&_onGround&&Time.timeScale>0.1f)
         {
             Jump();
         }
@@ -61,21 +72,32 @@ public class PlayerMovement : MonoBehaviour
 
     private void Jump()
     {
-        StartCoroutine(Jumping());
+        if (_jumping==null)
+        {
+            _jumping= StartCoroutine(Jumping());
+        }
     }
 
     private IEnumerator Jumping()
     {
-        if (_jumpForce<_bonusJumpForce)
+        if (_isSideJump)
         {
-            _player.ChampionFlip();
+            _player.SideFlip();
         }
         else
         {
-            _player.BonusFlip();
+            if (_jumpForce < _bonusJumpForce)
+            {
+                _player.ChampionFlip();
+            }
+            else
+            {
+                _player.BonusFlip();
+            }
         }
+
         Vector3 destination = transform.position + Vector3.up * _jumpForce+Vector3.forward*_jumpForce;
-        _isJumping = true;
+        _onGround = false;
         _rigidbody.isKinematic = true;
         while (transform.position.z<destination.z)
         {
@@ -83,33 +105,62 @@ public class PlayerMovement : MonoBehaviour
             yield return null;
         }
         _rigidbody.isKinematic = false;
-        _isJumping = false;
+        _jumping = null;
+    }
+
+    public void SetJumpForce(float time)
+    {
+        StartCoroutine(JumpForcing(time));
+    }
+
+    private IEnumerator JumpForcing(float time)
+    {
+        _upSpeed *= 3;
+        yield return new WaitForSeconds(time);
+        _upSpeed /= 3;
 
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.TryGetComponent(out Obstacle obstacle))
+        if (other.TryGetComponent(out Obstacle obstacle)|| other.TryGetComponent(out BigObstacles bigObstacles))
         {
-            _player.Fall();
-        }
-        if (other.TryGetComponent(out BigObstacles bigObstacles))
-        {
-            _player.Fall();
+            if (_isSideJump)
+            {
+                Jump();
+            }
+            else
+            {
+                _player.Fall();
+                _speed = 0;
+
+            }
         }
         if (other.TryGetComponent(out Diamond diamond))
         {
             diamond.gameObject.SetActive(false);
-            _player.TakeDiamond(diamond.Points);
+            _player.TakeDiamond(diamond.CrystalsCount);
         }
         if (other.TryGetComponent(out Finish finish))
         {
             _player.FinishGame();
-        }
-        if (other.TryGetComponent(out BonusJump bonusJump))
+        }  
+        if (other.TryGetComponent(out HourGlassBonus hourGlass))
         {
-            StartCoroutine(GettingJumpBonus());
-            bonusJump.gameObject.SetActive(false);
+            hourGlass.StartHourGlass(_player);
+        }
+        if (other.TryGetComponent(out ShieldJumpBonus sideJumpBonus))
+        {
+            if (_gettingShieldBonus==null)
+            {
+                _gettingShieldBonus=StartCoroutine(GetSideJumpBonus(sideJumpBonus.LifeTime));
+            }
+            sideJumpBonus.gameObject.SetActive(false);
+        }
+        
+        if (other.TryGetComponent(out Hint hint))
+        {
+            hint.StartHint();
         }
     }
 
@@ -118,6 +169,12 @@ public class PlayerMovement : MonoBehaviour
         if (collision.gameObject.TryGetComponent(out Enemy enemy))
         {
             _player.Fall();
+            _speed = 0;
+        }
+        
+        if (collision.gameObject.TryGetComponent(out Road road))
+        {
+            _onGround = true;
         }
     }
 
@@ -147,14 +204,19 @@ public class PlayerMovement : MonoBehaviour
         transform.LookAt(transform.position+Vector3.forward);
     }
 
-    private IEnumerator GettingJumpBonus()
+    private IEnumerator GetJumpBonus(float bonusLifeTime)
     {
         _player.GetJumpBonus();
-        float startForce = _jumpForce;
-        _jumpForce=_bonusJumpForce;
-        Debug.Log(_jumpForce);
-        yield return new WaitForSeconds(_bonusJumpTime);
-        _jumpForce=startForce;
-        Debug.Log(_jumpForce);
+        _jumpForce = _bonusJumpForce;
+        yield return new WaitForSeconds(bonusLifeTime);
+        _jumpForce = _startJumpForce;
+    }
+    
+    private IEnumerator GetSideJumpBonus(float bonusLifeTime)
+    {
+        _player.GetShieldJumpBonus();
+        _isSideJump = true;
+        yield return new WaitForSeconds(bonusLifeTime);
+        _isSideJump = false;
     }
 }

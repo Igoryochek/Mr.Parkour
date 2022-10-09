@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BonusJump : MonoBehaviour
+public class BonusJump : Bonus
 {
 
 }
